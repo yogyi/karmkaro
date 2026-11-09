@@ -1,4 +1,13 @@
 import type { Prisma, Role } from "@/generated/prisma/client";
+import {
+  demoAudit,
+  demoBootstrap,
+  demoDashboard,
+  demoEmployeeProfile,
+  demoReport,
+  demoWorkload,
+  isDemoMode,
+} from "@/lib/demo-mode";
 import type { Bootstrap, MemberDTO, ProjectDTO } from "@/lib/dto";
 import { emailLinksExposed, emailShell, sendEmail, appUrl } from "@/lib/email";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -50,6 +59,7 @@ function memberDTO(row: Prisma.MembershipGetPayload<{ include: { user: true } }>
 }
 
 export async function loadBootstrap(ctx: AppContext): Promise<Bootstrap> {
+  if (isDemoMode()) return demoBootstrap(ctx.user.id);
   const [members, projects, labels, notifications, filters, me] = await Promise.all([
     prisma.membership.findMany({
       where: { organizationId: ctx.organizationId },
@@ -375,6 +385,7 @@ export async function updateSettings(
 
 export async function dashboard(ctx: AppContext) {
   if (!can(ctx.role, "reports.view")) throw new ForbiddenError();
+  if (isDemoMode()) return demoDashboard();
   const tasks = await prisma.task.findMany({
     where: { organizationId: ctx.organizationId, deletedAt: null },
     select: {
@@ -425,6 +436,7 @@ export async function dashboard(ctx: AppContext) {
 
 export async function workload(ctx: AppContext) {
   if (!can(ctx.role, "reports.view")) throw new ForbiddenError();
+  if (isDemoMode()) return demoWorkload();
   const now = new Date();
   const days = Array.from({ length: 7 }, (_, index) => addDaysZoned(startOfZonedDay(now, ctx.org.timezone), index, ctx.org.timezone));
   const tasks = await prisma.task.findMany({
@@ -452,6 +464,7 @@ export async function workload(ctx: AppContext) {
 
 export async function report(ctx: AppContext, fromIso?: string, toIso?: string) {
   if (!can(ctx.role, "reports.view")) throw new ForbiddenError();
+  if (isDemoMode()) return demoReport();
   const from = fromIso ? new Date(fromIso) : addDaysZoned(new Date(), -30, ctx.org.timezone);
   const to = toIso ? new Date(toIso) : new Date();
   const [tasks, projects, members] = await Promise.all([
@@ -533,6 +546,7 @@ export async function reportPdf(ctx: AppContext, data: Awaited<ReturnType<typeof
 
 export async function listAudit(ctx: AppContext) {
   if (!can(ctx.role, "audit.view")) throw new ForbiddenError();
+  if (isDemoMode()) return demoAudit();
   const rows = await prisma.activityLog.findMany({
     where: { organizationId: ctx.organizationId },
     include: { actor: true },
@@ -553,6 +567,11 @@ export async function listAudit(ctx: AppContext) {
 
 export async function employeeProfile(ctx: AppContext, userId: string) {
   if (!can(ctx.role, "reports.view") && userId !== ctx.user.id) throw new ForbiddenError();
+  if (isDemoMode()) {
+    const profile = demoEmployeeProfile(userId);
+    if (!profile) throw new NotFoundError();
+    return profile;
+  }
   const membership = await prisma.membership.findFirst({
     where: { userId, organizationId: ctx.organizationId },
     include: { user: true },

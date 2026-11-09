@@ -96,9 +96,10 @@ function LoginForm() {
           <Button className="w-full" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
           </Button>
-          {process.env.NEXT_PUBLIC_DEMO === "1" && (
+          {process.env.NEXT_PUBLIC_DEMO !== "0" && (
             <div className="space-y-1.5 rounded-xl bg-secondary/70 p-3 text-sm">
               <p className="font-medium text-foreground/80">Demo password: KarmKaro#2026</p>
+              <p className="text-xs text-muted-foreground">Tap a name to fill the form — works without a database.</p>
               {demos.map(([name, mail, role]) => (
                 <button
                   type="button"

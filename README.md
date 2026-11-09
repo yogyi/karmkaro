@@ -6,7 +6,7 @@ The interface is original. It is not a copy of any other task product.
 
 ## Demo workspace
 
-The seed creates **Indus Collective** (`Asia/Kolkata`). Every account uses the password `KarmKaro#2026`.
+Every demo account uses the password `KarmKaro#2026`.
 
 | Person | Email | Role |
 | --- | --- | --- |
@@ -18,7 +18,9 @@ The seed creates **Indus Collective** (`Asia/Kolkata`). Every account uses the p
 | Vikram Singh | vikram.singh@karmkaro.dev | Employee |
 | Meera Iyer | meera.iyer@karmkaro.dev | Employee |
 
-Aanya still has the first-hour checklist. With no email provider configured, invite, verification, and reset links are returned in the API response and stored in `EmailOutbox`.
+**Vercel preview without a database:** if `DATABASE_URL` is missing, the first three accounts above still sign in (password `KarmKaro#2026`) and load fixture tasks so you can check the frontend. Writes are soft-acked until Postgres is connected. Set `DEMO_MODE=0` to disable that fallback.
+
+With a seeded database, Aanya still has the first-hour checklist. With no email provider configured, invite, verification, and reset links are returned in the API response and stored in `EmailOutbox`.
 
 ## Run locally
 

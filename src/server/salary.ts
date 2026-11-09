@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { demoPayDesk, demoPayslips, isDemoMode } from "@/lib/demo-mode";
 import { AppError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { appUrl, emailLinksExposed, emailShell, sendEmail } from "@/lib/email";
 import { computePay, formatInr, formatInrPlain, monthLabel } from "@/lib/money";
@@ -124,6 +125,7 @@ function toSlip(row: {
 
 export async function listPayDesk(ctx: AppContext) {
   if (!can(ctx.role, "pay.manage")) throw new ForbiddenError();
+  if (isDemoMode()) return demoPayDesk();
   const members = await prisma.membership.findMany({
     where: { organizationId: ctx.organizationId, active: true },
     include: { user: true },
@@ -376,6 +378,7 @@ export async function emailPayslipsForMonth(
 }
 
 export async function listMyPayslips(ctx: AppContext) {
+  if (isDemoMode()) return demoPayslips();
   const start = payslipWindowStart();
   const whereWindow = {
     OR: [

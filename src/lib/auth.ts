@@ -4,6 +4,7 @@ import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { headers } from "next/headers";
+import { demoAuthUser, isDemoMode } from "./demo-mode";
 import { prisma } from "./prisma";
 import { verifyPassword } from "./password";
 import { rateLimit } from "./rate-limit";
@@ -37,6 +38,16 @@ const providers: NextAuthConfig["providers"] = [
       const password = String(credentials?.password ?? "");
       if (!email || !password) throw new InvalidLogin();
       rateLimit(`login:${email}`, 12, 10 * 60 * 1000);
+
+      if (isDemoMode()) {
+        const demo = demoAuthUser(email, password);
+        if (!demo) {
+          log("warn", "Failed demo sign-in", { email });
+          throw new InvalidLogin();
+        }
+        return demo;
+      }
+
       const user = await prisma.user.findUnique({ where: { email } });
       const ip = await clientIp();
       if (!user?.passwordHash) {
@@ -79,7 +90,7 @@ const providers: NextAuthConfig["providers"] = [
   }),
 ];
 
-if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
+if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET && !isDemoMode()) {
   providers.push(
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
@@ -95,13 +106,14 @@ if (!process.env.AUTH_SECRET) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter: isDemoMode() ? undefined : PrismaAdapter(prisma),
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 14 },
   trustHost: true,
   pages: { signIn: "/login" },
   providers,
   callbacks: {
     async signIn({ user, account }) {
+      if (isDemoMode()) return true;
       if (account?.provider === "google" && user.id) {
         await prisma.user.update({
           where: { id: user.id },
@@ -121,7 +133,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   events: {
     async signIn({ user }) {
-      if (!user.id) return;
+      if (isDemoMode() || !user.id) return;
       const membership = await prisma.membership.findFirst({ where: { userId: user.id, active: true } });
       if (!membership) return;
       const ip = await clientIp().catch(() => "local");

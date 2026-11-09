@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isDemoMode } from "@/lib/demo-mode";
 import { AppError } from "@/lib/errors";
 import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -86,6 +87,17 @@ export async function dispatch(request: Request, parts: string[]) {
   const method = request.method;
   const [a, b, c, d] = parts;
   const url = new URL(request.url);
+
+  // Preview deploy has no Postgres — allow browsing, soft-ack writes.
+  if (isDemoMode() && method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+    if (a === "ai") {
+      return json({
+        reply: "Demo preview only — connect DATABASE_URL to use AI actions for real.",
+        demo: true,
+      });
+    }
+    return json({ ok: true, demo: true });
+  }
 
   if (a === "me" && !b && method === "GET") return json(await loadBootstrap(ctx));
   if (a === "me" && !b && method === "PATCH") {

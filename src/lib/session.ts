@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import type { Role } from "@/generated/prisma/client";
 import { auth } from "./auth";
+import { demoContext, isDemoMode } from "./demo-mode";
 import { AuthError } from "./errors";
 import { prisma } from "./prisma";
 
@@ -38,6 +39,13 @@ export async function getContext(): Promise<AppContext | null> {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return null;
+
+  if (isDemoMode()) {
+    const headerList = await headers();
+    const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    return demoContext(userId, ip);
+  }
+
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return null;
   const memberships = await prisma.membership.findMany({

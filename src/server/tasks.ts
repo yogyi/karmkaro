@@ -1,4 +1,5 @@
 import type { Prisma, TaskStatus } from "@/generated/prisma/client";
+import { demoTaskDetail, demoTasks, isDemoMode } from "@/lib/demo-mode";
 import type { TaskDTO } from "@/lib/dto";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { parseFilter, taskMatches, type FilterTask } from "@/lib/filter-query";
@@ -94,6 +95,34 @@ export async function listTasks(
   ctx: AppContext,
   query: { view?: string; projectId?: string; q?: string; filter?: string; parentId?: string },
 ) {
+  if (isDemoMode()) {
+    let tasks = demoTasks(ctx.user.id);
+    if (query.view === "today") {
+      const end = endOfZonedDay(new Date(), ctx.org.timezone);
+      tasks = tasks.filter((item) => item.status !== "DONE" && item.dueAt && new Date(item.dueAt) <= end);
+    } else if (query.view === "assigned") {
+      tasks = tasks.filter((item) => item.status !== "DONE" && item.assigneeIds.includes(ctx.user.id));
+    } else if (query.view === "completed") {
+      tasks = tasks.filter((item) => item.status === "DONE");
+    } else if (query.view === "inbox") {
+      tasks = tasks.filter((item) => !item.projectId && item.status !== "DONE");
+    } else if (query.view === "project" && query.projectId) {
+      tasks = tasks.filter((item) => item.projectId === query.projectId);
+    } else if (query.view === "overdue") {
+      const now = new Date();
+      tasks = tasks.filter((item) => item.status !== "DONE" && item.dueAt && new Date(item.dueAt) < now);
+    } else if (query.view === "upcoming") {
+      const end = endOfZonedDay(new Date(), ctx.org.timezone);
+      tasks = tasks.filter((item) => item.status !== "DONE" && item.dueAt && new Date(item.dueAt) > end);
+    }
+    if (query.q) {
+      const needle = query.q.toLowerCase();
+      tasks = tasks.filter(
+        (item) => item.title.toLowerCase().includes(needle) || (item.description ?? "").toLowerCase().includes(needle),
+      );
+    }
+    return tasks;
+  }
   const search: Prisma.TaskWhereInput = query.q
     ? {
         OR: [
@@ -305,6 +334,22 @@ async function announceAssignment(ctx: AppContext, task: TaskRow, previous: stri
 }
 
 export async function getTaskDetail(ctx: AppContext, id: string) {
+  if (isDemoMode()) {
+    const detail = demoTaskDetail(ctx.user.id, id);
+    if (!detail) throw new NotFoundError();
+    return {
+      task: detail,
+      comments: detail.comments.map((comment) => ({
+        id: comment.id,
+        body: comment.body,
+        createdAt: comment.createdAt,
+        author: { id: comment.user.id, name: comment.user.name },
+      })),
+      children: [],
+      attachments: [],
+      activity: [],
+    };
+  }
   const task = await loadTask(ctx, id);
   const [comments, children, attachments, activity] = await Promise.all([
     prisma.comment.findMany({ where: { taskId: id }, include: { author: true }, orderBy: { createdAt: "asc" } }),
