@@ -96,10 +96,16 @@ export async function listTasks(
   query: { view?: string; projectId?: string; q?: string; filter?: string; parentId?: string },
 ) {
   if (isDemoMode()) {
+    const now = new Date();
+    const start = startOfZonedDay(now, ctx.org.timezone);
+    const end = endOfZonedDay(now, ctx.org.timezone);
     let tasks = demoTasks(ctx.user.id);
     if (query.view === "today") {
-      const end = endOfZonedDay(new Date(), ctx.org.timezone);
-      tasks = tasks.filter((item) => item.status !== "DONE" && item.dueAt && new Date(item.dueAt) <= end);
+      tasks = tasks.filter((item) => {
+        if (item.status === "DONE" || !item.dueAt) return false;
+        const due = new Date(item.dueAt);
+        return (due >= start && due <= end) || due < now;
+      });
     } else if (query.view === "assigned") {
       tasks = tasks.filter((item) => item.status !== "DONE" && item.assigneeIds.includes(ctx.user.id));
     } else if (query.view === "completed") {
@@ -109,10 +115,8 @@ export async function listTasks(
     } else if (query.view === "project" && query.projectId) {
       tasks = tasks.filter((item) => item.projectId === query.projectId);
     } else if (query.view === "overdue") {
-      const now = new Date();
       tasks = tasks.filter((item) => item.status !== "DONE" && item.dueAt && new Date(item.dueAt) < now);
     } else if (query.view === "upcoming") {
-      const end = endOfZonedDay(new Date(), ctx.org.timezone);
       tasks = tasks.filter((item) => item.status !== "DONE" && item.dueAt && new Date(item.dueAt) > end);
     }
     if (query.q) {

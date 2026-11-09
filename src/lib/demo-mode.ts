@@ -1,6 +1,7 @@
 import type { Bootstrap, TaskDTO } from "@/lib/dto";
 import { computePay, monthLabel } from "@/lib/money";
 import type { AppContext } from "@/lib/session";
+import { startOfZonedDay } from "@/lib/zoned";
 
 /** Preview mode when Vercel has no Postgres yet. */
 export function isDemoMode() {
@@ -175,9 +176,10 @@ function task(
     Partial<TaskDTO>,
 ): TaskDTO {
   const labels = LABELS.filter((label) => partial.labelIds.includes(label.id));
+  const todayStart = startOfZonedDay(new Date(), ORG.timezone);
   return {
     description: null,
-    dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    dueAt: new Date(todayStart.getTime() + 16 * 60 * 60 * 1000).toISOString(),
     startAt: null,
     estimateMinutes: 60,
     trackedMinutes: 0,
@@ -198,6 +200,8 @@ function task(
 }
 
 export function demoTasks(userId: string): TaskDTO[] {
+  const todayStart = startOfZonedDay(new Date(), ORG.timezone);
+  const tomorrow = new Date(todayStart.getTime() + 36 * 60 * 60 * 1000);
   const all = [
     task({
       id: "demo-task-1",
@@ -206,7 +210,7 @@ export function demoTasks(userId: string): TaskDTO[] {
       status: "TODO",
       assigneeIds: ["demo-user-rahul"],
       labelIds: ["demo-label-client"],
-      dueAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+      dueAt: new Date(todayStart.getTime() + 11 * 60 * 60 * 1000).toISOString(),
     }),
     task({
       id: "demo-task-2",
@@ -216,6 +220,7 @@ export function demoTasks(userId: string): TaskDTO[] {
       assigneeIds: ["demo-user-rahul"],
       labelIds: ["demo-label-design"],
       sectionId: "demo-section-doing",
+      dueAt: new Date(todayStart.getTime() + 15 * 60 * 60 * 1000).toISOString(),
     }),
     task({
       id: "demo-task-3",
@@ -224,6 +229,7 @@ export function demoTasks(userId: string): TaskDTO[] {
       status: "TODO",
       assigneeIds: ["demo-user-arjun"],
       labelIds: ["demo-label-finance"],
+      dueAt: tomorrow.toISOString(),
     }),
     task({
       id: "demo-task-4",
@@ -232,6 +238,7 @@ export function demoTasks(userId: string): TaskDTO[] {
       status: "IN_REVIEW",
       assigneeIds: ["demo-user-rahul"],
       labelIds: ["demo-label-design", "demo-label-client"],
+      dueAt: new Date(todayStart.getTime() - 2 * 60 * 60 * 1000).toISOString(),
     }),
   ];
   const user = DEMO_USERS.find((item) => item.id === userId);
